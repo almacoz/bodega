@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   // HSTS: Force HTTPS for 1 year, include subdomains
@@ -27,13 +27,14 @@ export function middleware(request: NextRequest) {
   // - connect-src 'self': allow fetch to own API routes only (LLM calls are server-side)
   // - img-src 'self' data: blob:: allow images from same origin, data URIs, and blobs
   // - frame-ancestors 'none': equivalent to X-Frame-Options DENY
+  const isDev = process.env.NODE_ENV !== "production";
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval needed for Next.js dev mode
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://www.paypal.com https://www.sandbox.paypal.com", // PayPal SDK connections
-    "img-src 'self' data: blob: https://www.paypalobjects.com", // PayPal images
+    "img-src 'self' data: blob: https:", // Product reference thumbnails & PayPal assets over HTTPS
     "frame-src https://www.paypal.com https://www.sandbox.paypal.com", // PayPal checkout frames
     "frame-ancestors 'none'",
     "base-uri 'self'",

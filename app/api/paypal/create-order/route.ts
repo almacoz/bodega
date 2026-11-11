@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       return fail("Invalid request body.", 400);
     }
     
-    const { intentionId, subject, amount, currency } = body;
+    const { intentionId, subject, amount, currency, productId } = body;
     
     // Validate required fields
     if (typeof intentionId !== "string" || intentionId.length < 3) {
@@ -55,7 +55,8 @@ export async function POST(req: Request) {
       intentionId,
       subject,
       amount,
-      currency || "USD"
+      currency || "USD",
+      productId
     );
     
     return NextResponse.json({

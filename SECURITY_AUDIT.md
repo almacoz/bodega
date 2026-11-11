@@ -1,4 +1,4 @@
-# BODEGA Security Audit Report
+# WhyBuy Security Audit Report
 **Date:** November 9, 2026  
 **Status:** Ready for Sandbox demonstrations; NOT for production commerce
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-BODEGA has been audited and is ready for PayPal Sandbox demonstrations. **8 items PASS**, **2 items have WARNINGS** (documented limitations), and **0 items FAIL**. 
+WhyBuy has been audited and is ready for PayPal Sandbox demonstrations. **8 items PASS**, **2 items have WARNINGS** (documented limitations), and **0 items FAIL**. 
 
 **CRITICAL LIMITATION**: The PayPal integration uses a **user-declared pricing model** suitable for hackathon demos and Sandbox testing, but **NOT suitable for real merchant transactions or production commerce**. The server cannot verify payment amounts match "true" prices because all data lives in client-side localStorage.
 
@@ -439,7 +439,7 @@ All critical security flaws addressed with honest documentation.
 
 ## Conclusion
 
-**BODEGA is ready for Sandbox demonstrations and hackathon presentations.** The application correctly handles secrets, implements input validation and rate limiting, and safely manages provider errors. PayPal Sandbox integration works as designed for demo purposes.
+**WhyBuy is ready for Sandbox demonstrations and hackathon presentations.** The application correctly handles secrets, implements input validation and rate limiting, and safely manages provider errors. PayPal Sandbox integration works as designed for demo purposes.
 
 **PayPal Integration Status: ✅ SANDBOX DEMO COMPLETE**
 - Server-side order creation and capture

@@ -1,47 +1,80 @@
 @import "tailwindcss";
 
 @theme {
-  --color-void: #070a0f;
-  --color-graphite: #0d1117;
-  --color-slate: #141a22;
-  --color-line: rgb(255 255 255 / 0.07);
-  --color-fg: #e8edf3;
-  --color-dim: #8794a4;
-  --color-mint: #3ef2b5;
-  --color-amber: #f2b84b;
+  --color-void: #ffffff;
+  --color-graphite: #f8fafc;
+  --color-slate: #f1f5f9;
+  --color-line: #e5e7eb;
+  --color-fg: #0f172a;
+  --color-dim: #64748b;
+  --color-mint: #059669;
+  --color-amber: #d97706;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-instrument), ui-serif, Georgia, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-display), Georgia, Cambria, "Times New Roman", serif;
 }
 
-:root { color-scheme: dark; }
+:root {
+  color-scheme: light;
+}
 
 body {
   color: var(--color-fg);
-  background:
-    radial-gradient(900px 480px at 78% -8%, rgb(62 242 181 / 0.07), transparent 65%),
-    radial-gradient(700px 400px at 4% 28%, rgb(90 120 255 / 0.05), transparent 70%),
-    linear-gradient(180deg, #080a0f, #0d1117) fixed;
+  background-color: #ffffff;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-::selection { background: rgb(62 242 181 / 0.25); }
-:focus-visible { outline: 1px solid var(--color-mint); outline-offset: 3px; }
-textarea:focus-visible, input:focus-visible { outline: none; }
+::selection {
+  background: rgb(5 150 105 / 0.14);
+  color: #065f46;
+}
 
-mark { background: rgb(62 242 181 / 0.14); color: var(--color-mint); border-radius: 2px; padding: 0 2px; }
+:focus-visible {
+  outline: 2px solid var(--color-mint);
+  outline-offset: 2px;
+}
 
-/* Motion answers an action: the review opening, an intention expanding. Nothing else animates on its own. */
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.rise { animation: rise 0.25s ease-out both; }
+textarea:focus-visible, input:focus-visible {
+  outline: none;
+}
 
-/* The newest bead breathes once, so the eye lands on what was just remembered. */
-@keyframes pulse-once { 0% { box-shadow: 0 0 0 0 rgb(62 242 181 / 0.5); } 100% { box-shadow: 0 0 0 10px rgb(62 242 181 / 0); } }
-.bead-new { animation: pulse-once 1.4s ease-out 2; }
+/* Native top-layer side sheet */
+dialog.sheet:modal {
+  overscroll-behavior: contain;
+  animation: sheet-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+dialog.sheet::backdrop {
+  background: rgb(15 23 42 / 0.28);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes row-new {
+  from { background-color: rgb(5 150 105 / 0.08); }
+  to { background-color: transparent; }
+}
+.row-new {
+  animation: row-new 1.6s ease-out both;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .rise, .bead-new { animation: none; }
+  dialog.sheet:modal, .rise, .row-new { animation: none; }
   * { transition: none !important; }
 }

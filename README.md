@@ -1,58 +1,49 @@
-# BODEGA (hackathon MVP)
+# WhyBuy
 
-A memory of what you intend. Capture a want in English or Spanish, review how it was understood,
-and see earlier intentions that serve the same underlying need. Optional PayPal Sandbox demo integration for hackathon presentations.
+**Remember why before you buy.**
+
+An AI-powered memory that helps people understand the evolution of their purchasing intentions before turning them into transactions.
 
     npm install
     cp .env.example .env.local   # add credentials (see below)
     npm run dev                  # http://localhost:3000
     npm test
 
-Memory lives in your browser's localStorage under `bodega:v1`. Clear it to start over.
+Memory lives in your browser's localStorage under `whybuy:v1`. Clear it to start over.
 
 ## Features
 
-- **Intention Capture**: Describe what you want in English or Spanish
-- **AI Understanding**: Extracts subject, purpose, needs, budget, and sentiment
+- **Intention Capture**: Save a purchase idea immediately, then interpret its reason asynchronously
+- **Waiting Cart**: Choose a 1, 3, or 7 day wait, check in daily, and decide when ready
+- **Shopping Assistant**: Proposes sandbox orders and stores them in the browser-local waiting cart
+- **AI Understanding**: Extracts subject, purpose, needs, budget, reason type, and reflection
 - **Memory Linking**: Finds similar past intentions that serve the same needs
 - **PayPal Sandbox Demo**: Optional demonstration of purchase flow (Sandbox only, not production)
 - **Timeline**: Track status changes (active, reconsidering, archived, purchased)
 
 ## Environment Setup
 
-### Required: Google AI (Gemini)
+### Local AI: Ollama
 
-1. Get a free API key at [aistudio.google.com](https://aistudio.google.com)
-   - Click "Get API key" and create one
-   - Free tier has usage limits (check AI Studio for details)
-   - No credit card required for free tier
-
+1. Start Ollama locally and pull a model that supports tool calling for the shopping assistant.
 2. Copy the environment template:
    ```bash
    cp .env.example .env.local
    ```
 
-3. Edit `.env.local` and add your credentials:
+3. Set the Ollama OpenAI-compatible endpoint and model in `.env.local`:
    ```bash
-   LLM_API_KEY=your_gemini_api_key_here
-   LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-   LLM_MODEL=gemini-3.8-flash
+   LLM_API_KEY=ollama
+   LLM_BASE_URL=http://localhost:11434/v1
+   LLM_MODEL=qwen3:8b
    ```
 
-4. Restart the dev server (Next.js only reads environment variables on startup):
+4. Restart the dev server after changing environment variables:
    ```bash
    npm run dev
    ```
 
-**Important**: 
-- Never use `NEXT_PUBLIC_` prefix (would expose key to browser)
-- Never commit `.env.local` (already in .gitignore)
-- If you accidentally expose your key, revoke it in AI Studio and create a new one
-
-**Model Notes**:
-- `gemini-3.8-flash` is recommended for new projects
-- `gemini-2.5-flash` is deprecated for new API keys (may return "model not found")
-- For alternatives, use `gemini-3.5-flash-lite` or check [Google's documentation](https://ai.google.dev/gemini-api/docs/models)
+The assistant needs an Ollama model with OpenAI-compatible tool-calling support. Ollama's API key value is not used for local authentication; keep `.env.local` uncommitted.
 
 **Privacy Notice**: Google may use free-tier requests to improve their products. Review [Google's terms](https://ai.google.dev/terms) for details.
 
@@ -82,11 +73,20 @@ Memory lives in your browser's localStorage under `bodega:v1`. Clear it to start
 ```bash
 PAYPAL_CLIENT_ID=your_sandbox_client_id
 PAYPAL_CLIENT_SECRET=your_sandbox_client_secret
-PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com
 APP_BASE_URL=http://localhost:3000
 ```
 
 For production deployment, set `APP_BASE_URL` to your deployed domain (e.g., `https://yourdomain.com`).
+
+## PayPal Sandbox Demo
+
+## Agent safety boundary
+
+The assistant can propose a purchase and read an order status; it cannot capture a payment. Its PayPal Agent Toolkit configuration enables only `orders.create` and `orders.get` in sandbox mode, and the model receives only the `proposePurchase` and read-only `getOrder` tools. The proposal wrapper requires the reason to appear in the user's own message and puts the reason in the PayPal order description. See [app/api/agent/route.ts](app/api/agent/route.ts).
+
+Only a person can approve on PayPal. The approval link is shown after the user chooses **Approve with PayPal** for a ready intention. PayPal returns to [app/paypal/return/page.tsx](app/paypal/return/page.tsx), which calls [app/api/paypal/capture-order/route.ts](app/api/paypal/capture-order/route.ts) after approval. There is no capture tool or capture call in the agent route.
+
+Set `NEXT_PUBLIC_DEMO_MODE=true` to show the local “Demo: skip a day” control and demo reset. It changes the browser-local business clock only; intentions remain in localStorage. Similar-intention recall is disabled by default; set `NEXT_PUBLIC_RECALL_ENABLED=true` to enable it.
 
 ## PayPal Sandbox Demo
 

@@ -44,16 +44,16 @@ interface PayPalCaptureResponse {
 }
 
 function getConfig(): PayPalConfig {
-  const { PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_BASE_URL } = process.env;
+  const { PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET } = process.env;
   
-  if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET || !PAYPAL_BASE_URL) {
-    throw new Error("PayPal configuration missing. Set PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, and PAYPAL_BASE_URL.");
+  if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+    throw new Error("PayPal configuration missing. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.");
   }
   
   return {
     clientId: PAYPAL_CLIENT_ID,
     clientSecret: PAYPAL_CLIENT_SECRET,
-    baseUrl: PAYPAL_BASE_URL.replace(/\/$/, ""),
+    baseUrl: "https://api-m.sandbox.paypal.com",
   };
 }
 
@@ -90,7 +90,10 @@ export async function createPayPalOrder(
   intentionId: string,
   subject: string,
   amount: number,
-  currency: string = "USD"
+  currency: string = "USD",
+  productId?: string,
+  reason?: string,
+  merchant?: string,
 ): Promise<{ orderId: string; approvalUrl: string }> {
   const config = getConfig();
   const token = await getAccessToken();
@@ -108,17 +111,27 @@ export async function createPayPalOrder(
     purchase_units: [
       {
         reference_id: intentionId,
-        description: `Purchase intention: ${subject.slice(0, 100)}`,
+        description: `WhyBuy: ${(reason || subject).slice(0, 119)}`.slice(0, 127),
+        custom_id: intentionId.slice(0, 127),
         amount: {
           currency_code: currency,
           value: formattedAmount,
+          breakdown: { item_total: { currency_code: currency, value: formattedAmount } },
         },
+        items: [
+          {
+            name: subject.slice(0, 127),
+            quantity: "1",
+            unit_amount: { currency_code: currency, value: formattedAmount },
+            ...(merchant ? { description: `Store: ${merchant}`.slice(0, 127) } : {}),
+          },
+        ],
       },
     ],
     application_context: {
-      return_url: `${process.env.APP_BASE_URL || "http://localhost:3000"}/?intention=${intentionId}`,
-      cancel_url: `${process.env.APP_BASE_URL || "http://localhost:3000"}/`,
-      brand_name: "BODEGA",
+      return_url: `${process.env.APP_BASE_URL || "http://localhost:3000"}/paypal/return?intentionId=${encodeURIComponent(intentionId)}${productId ? `&product=${encodeURIComponent(productId)}` : ""}`,
+      cancel_url: `${process.env.APP_BASE_URL || "http://localhost:3000"}/paypal/cancel?intentionId=${encodeURIComponent(intentionId)}`,
+      brand_name: "WhyBuy",
       user_action: "PAY_NOW",
     },
   };
@@ -133,15 +146,14 @@ export async function createPayPalOrder(
   });
   
   if (!res.ok) {
-    const error = await res.text();
     throw new Error(`PayPal order creation failed: ${res.status}`);
   }
   
   const order: PayPalOrderResponse = await res.json();
   
-  // Extract approval URL for redirect
-  const approvalUrl = order.links.find((link) => link.rel === "approve")?.href;
-  if (!approvalUrl) {
+  // Extract approval URL for redirect and verify PayPal domain
+  const approvalUrl = order.links.find((link) => link.rel === "approve" || link.rel === "payer-action")?.href;
+  if (!approvalUrl || !/^https:\/\/(www\.)?(sandbox\.)?paypal\.com\//i.test(approvalUrl)) {
     throw new Error("PayPal approval URL not found");
   }
   
@@ -158,10 +170,23 @@ export async function createPayPalOrder(
 export async function capturePayPalOrder(
   orderId: string
 ): Promise<{ success: boolean; amount: number; currency: string; captureId: string }> {
+  if (!/^[A-Za-z0-9_-]{3,80}$/.test(orderId)) {
+    throw new Error("Invalid PayPal order ID");
+  }
   const config = getConfig();
   const token = await getAccessToken();
+  const safeOrderId = encodeURIComponent(orderId);
+  const existingRes = await fetch(`${config.baseUrl}/v2/checkout/orders/${safeOrderId}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (existingRes.ok) {
+    const existing: PayPalOrderResponse = await existingRes.json();
+    if (existing.status === "COMPLETED") {
+      const unit = existing.purchase_units?.[0] as any;
+      const capture = unit?.payments?.captures?.[0];
+      if (capture?.id && capture?.amount?.value && capture?.amount?.currency_code) return { success: true, amount: Number(capture.amount.value), currency: capture.amount.currency_code, captureId: capture.id };
+    }
+  }
   
-  const res = await fetch(`${config.baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+  const res = await fetch(`${config.baseUrl}/v2/checkout/orders/${safeOrderId}/capture`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -170,7 +195,6 @@ export async function capturePayPalOrder(
   });
   
   if (!res.ok) {
-    const error = await res.text();
     throw new Error(`PayPal capture failed: ${res.status}`);
   }
   
@@ -199,10 +223,13 @@ export async function capturePayPalOrder(
  * Get order details from PayPal (for verification).
  */
 export async function getPayPalOrderDetails(orderId: string): Promise<PayPalOrderResponse> {
+  if (!/^[A-Za-z0-9_-]{3,80}$/.test(orderId)) {
+    throw new Error("Invalid PayPal order ID");
+  }
   const config = getConfig();
   const token = await getAccessToken();
   
-  const res = await fetch(`${config.baseUrl}/v2/checkout/orders/${orderId}`, {
+  const res = await fetch(`${config.baseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`,

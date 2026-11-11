@@ -1,5 +1,14 @@
 node_modules
 .next
-.env*.local
+.pnpm-store/
+.env
+.env.*
+!.env.example
 next-env.d.ts
 *.tsbuildinfo
+.claude-backup/
+.DS_Store
+coverage/
+*.log
+.vercel
+

@@ -28,7 +28,7 @@ describe("PayPal Purchase State Transitions", () => {
 
     const intention = memory.intentions.find((i) => i.id === intentionId);
     expect(intention).toBeDefined();
-    expect(intention!.status).toBe("purchased");
+    expect(intention!.status).toBe("bought");
 
     // Check purchase event
     const purchaseEvent = intention!.events.find((e) => e.type === "purchased");
@@ -59,11 +59,11 @@ describe("PayPal Purchase State Transitions", () => {
 
     // Purchase
     memory = applyAction(memory, id, "purchase", "Bought it", "ORDER-123");
-    expect(memory.intentions[0].status).toBe("purchased");
+    expect(memory.intentions[0].status).toBe("bought");
 
     // Cannot continue after purchase (status changes)
     memory = applyAction(memory, id, "continue", "Actually I still want more");
-    expect(memory.intentions[0].status).toBe("active"); // reverts to active
+    expect(memory.intentions[0].status).toBe("waiting"); // reverts to waiting
 
     const events = memory.intentions[0].events;
     expect(events).toHaveLength(3); // captured, purchased, continued
@@ -84,7 +84,7 @@ describe("PayPal Purchase State Transitions", () => {
     memory = applyAction(memory, result.id, "purchase", "Manual purchase", "ORDER-XYZ");
     
     const intention = memory.intentions[0];
-    expect(intention.status).toBe("purchased");
+    expect(intention.status).toBe("bought");
     expect(intention.events[1].paypalOrderId).toBe("ORDER-XYZ");
   });
 });
@@ -240,12 +240,12 @@ describe("PayPal Idempotency", () => {
 
     // First purchase
     memory = applyAction(memory, id, "purchase", "First attempt", "ORDER-1");
-    expect(memory.intentions[0].status).toBe("purchased");
+    expect(memory.intentions[0].status).toBe("bought");
     expect(memory.intentions[0].events).toHaveLength(2);
 
     // Second purchase attempt (would happen if user clicks twice or network retry)
     memory = applyAction(memory, id, "purchase", "Second attempt", "ORDER-1");
-    expect(memory.intentions[0].status).toBe("purchased");
+    expect(memory.intentions[0].status).toBe("bought");
     expect(memory.intentions[0].events).toHaveLength(3); // Both events recorded
 
     // Both purchase events should exist
@@ -339,5 +339,51 @@ describe("User-Declared Amount Validation", () => {
     const purchaseEvent = memory.intentions[0].events.find((e) => e.type === "purchased");
     expect(purchaseEvent?.note).toContain("USD 1500");
     expect(purchaseEvent?.note).toContain("Sandbox");
+  });
+});
+
+describe("PayPal Product Association", () => {
+  it("should associate selected product reference with purchase event", () => {
+    let memory = emptyMemory();
+    const interp: Interpretation = {
+      language: "en",
+      subject: "mechanical keyboard",
+      category: "hardware",
+      purpose: "ergonomics",
+      needs: ["typing-comfort"],
+      utility: [],
+      context: null,
+      timing: null,
+      budget: { amount: 150, currency: "USD" },
+      signals: [],
+    };
+
+    const result = addIntention(memory, "want a nice mechanical keyboard", interp);
+    memory = result.memory;
+    const intentionId = result.id;
+
+    // Simulate purchasing specific product
+    const productId = "prod-keychron-q1";
+    const productName = "Keychron Q1 Pro";
+    const orderId = "PAYPAL-ORDER-KEYBOARD-1";
+
+    memory = applyAction(
+      memory,
+      intentionId,
+      "purchase",
+      `Purchased ${productName} via PayPal Sandbox for USD 150`,
+      orderId,
+      productId,
+      productName,
+    );
+
+    const intention = memory.intentions.find((i) => i.id === intentionId);
+    expect(intention?.status).toBe("bought");
+    const purchaseEvent = intention?.events.find((e) => e.type === "purchased");
+    expect(purchaseEvent).toBeDefined();
+    expect(purchaseEvent?.productId).toBe(productId);
+    expect(purchaseEvent?.productName).toBe(productName);
+    expect(purchaseEvent?.paypalOrderId).toBe(orderId);
+    expect(purchaseEvent?.note).toContain("Keychron Q1 Pro");
   });
 });

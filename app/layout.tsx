@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Instrument_Serif } from "next/font/google";
+import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
 const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
-// The serif italic is the person's own voice. Sans and mono are the system's.
-const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument" });
+const display = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "Bodega — a memory of what you intend",
-  description: "Remember what you want, why you want it, and how that changes.",
+  title: "WhyBuy",
+  description: "A memory of your purchasing decisions: remember why you wanted something, and see when it connects to what you already considered.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable}`}>
-      <body className="min-h-screen font-sans antialiased">{children}</body>
+    <html lang="es" translate="no" className={`notranslate ${sans.variable} ${display.variable}`}>
+      <head>
+        <meta name="google" content="notranslate" />
+      </head>
+      <body className="min-h-screen bg-white font-sans text-fg antialiased">
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

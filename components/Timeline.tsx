@@ -1,69 +1,148 @@
 "use client";
 
-import type { Action, LinkState, Memory } from "@/lib/types";
-import { IntentionDetail } from "./IntentionDetail";
-import { Chip, fmtDate, label } from "./ui";
+import { Link2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+import type { Intention, Memory } from "@/lib/types";
+import { cap, relDate, StatusMark } from "./ui";
+import { now } from "@/lib/clock";
 
-const BEAD = { active: "bg-mint", reconsidering: "bg-amber", archived: "bg-dim/50", purchased: "bg-mint" } as const;
+const DAY = 86_400_000;
 
-/** Newest first. A luminous thread runs through every bead; the thread is time. */
+/** Wait progress 0..1 and whole days left. */
+function waitProgress(i: Intention) {
+  const total = Math.max(1, (i.waitDays ?? 0) * DAY);
+  const start = Date.parse(i.createdAt);
+  const end = i.waitUntil ? Date.parse(i.waitUntil) : start;
+  const t = now().getTime();
+  return { pct: Math.min(1, Math.max(0, (t - start) / total)), daysLeft: Math.ceil((end - t) / DAY) };
+}
+
+/** Subjects of intentions the person confirmed as the same need. */
+function confirmedWith(i: Intention, memory: Memory): string[] {
+  return Object.entries(memory.links)
+    .filter(([k, s]) => s === "confirmed" && k.split("~").includes(i.id))
+    .map(([k]) => k.split("~").find((x) => x !== i.id))
+    .map((id) => memory.intentions.find((x) => x.id === id)?.interpretation.subject)
+    .filter((s): s is string => !!s);
+}
+
+function Row({ i, memory, isNew, onSelect }: { i: Intention; memory: Memory; isNew: boolean; onSelect: (id: string) => void }) {
+  const { lang, t } = useI18n();
+  const linked = process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" ? confirmedWith(i, memory) : [];
+  const chosen = i.products?.find((p) => p.id === i.selectedProductId);
+  const options = i.products?.length ?? 0;
+  const faded = i.status === "archived" || i.status === "let_go";
+
+  return (
+    <li className={isNew ? "row-new" : ""}>
+      <button
+        type="button"
+        onClick={() => onSelect(i.id)}
+        className="group grid w-full grid-cols-[1fr_auto] items-baseline gap-x-6 gap-y-1 border-t border-line py-5 text-left transition-colors sm:py-6"
+      >
+        <span className={`font-display text-2xl leading-tight tracking-tight transition-colors group-hover:text-emerald-800 ${faded ? "text-slate-400" : "text-fg"}`}>
+          {cap(i.interpretation.subject)}
+        </span>
+        <time dateTime={i.createdAt} className="text-xs tabular-nums text-slate-400">
+          {relDate(i.createdAt, lang)}
+        </time>
+        <span className={`line-clamp-1 text-[15px] ${faded ? "text-slate-400" : "text-dim"}`}>
+          {i.interpretation.purpose ?? i.rawText}
+        </span>
+        <span className="row-span-2 self-center justify-self-end">
+          {i.status === "ready" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#0070BA] px-4 py-2 text-sm font-semibold text-white group-hover:bg-[#005EA6]">{t.list.decideCta} →</span>
+          ) : i.status === "waiting" ? null : (
+            i.status !== "active" && <StatusMark status={i.status}>{t.list.status[i.status]}</StatusMark>
+          )}
+        </span>
+        {i.status === "waiting" && (() => {
+          const { pct, daysLeft } = waitProgress(i);
+          return (
+            <span className="col-span-1 flex items-center gap-3 pt-1">
+              <span className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+                <span className="block h-full rounded-full bg-amber-400 transition-all" style={{ width: `${Math.max(6, pct * 100)}%` }} />
+              </span>
+              <span className="text-xs font-medium text-amber-700">{t.list.readyIn(daysLeft)}</span>
+            </span>
+          );
+        })()}
+        {(linked.length > 0 || options > 0) && (
+          <span className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-slate-500">
+            {linked.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-emerald-800">
+                <Link2 size={12} /> {t.list.linked(linked.join(", "))}
+              </span>
+            )}
+            {chosen ? <span>→ {chosen.name}</span> : options > 0 && <span>{t.list.options(options)}</span>}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+/** What the person is considering, newest first. Decided things step back. */
 export function Timeline({
   memory,
-  selectedId,
   newestId,
   onSelect,
-  onAction,
-  onDecide,
 }: {
   memory: Memory;
-  selectedId: string | null;
   newestId: string | null;
-  onSelect: (id: string | null) => void;
-  onAction: (id: string, action: Action, note?: string, paypalOrderId?: string) => void;
-  onDecide: (aId: string, bId: string, state: LinkState) => void;
+  onSelect: (id: string) => void;
 }) {
-  const items = [...memory.intentions].reverse();
+  const { t } = useI18n();
+  const newestFirst = [...memory.intentions].reverse();
+  const ready = newestFirst.filter((i) => i.status === "ready");
+  const open = newestFirst.filter((i) => ["active", "reconsidering", "waiting"].includes(i.status));
+  const decided = newestFirst.filter((i) => ["purchased", "archived", "bought", "let_go"].includes(i.status));
 
-  if (!items.length) {
-    return <p className="mt-24 max-w-sm font-serif text-xl italic text-dim">Nothing remembered yet. Say what you want, and why. BODEGA will keep it for you.</p>;
+  if (!newestFirst.length) {
+    return <p className="mt-24 border-t border-line pt-6 text-[15px] text-slate-400">{t.list.empty}</p>;
   }
 
   return (
-    <section className="mt-24" aria-label="Memory timeline">
-      <ol>
-        {items.map((i, idx) => {
-          const open = i.id === selectedId;
-          const last = idx === items.length - 1;
-          return (
-            <li key={i.id} className="grid grid-cols-[4.25rem_1.5rem_1fr] gap-x-3 pb-10">
-              <time dateTime={i.createdAt} className="pt-2 text-right font-mono text-[11px] text-dim">{fmtDate(i.createdAt)}</time>
-              <div className="relative">
-                {!last && <span aria-hidden className="absolute -bottom-10 left-1/2 top-4 w-px bg-gradient-to-b from-mint/50 via-mint/15 to-line" />}
-                <span
-                  aria-hidden
-                  className={`absolute left-1/2 top-2.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full ${BEAD[i.status]} ${open ? "ring-4 ring-white/10" : ""} ${i.id === newestId ? "bead-new" : ""}`}
-                />
-              </div>
-              <div className="min-w-0">
-                <button onClick={() => onSelect(open ? null : i.id)} aria-expanded={open} className="block w-full text-left">
-                  <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className={`font-serif text-3xl italic leading-tight ${i.status === "archived" ? "text-dim" : ""}`}>{i.interpretation.subject}</span>
-                    {i.status !== "active" && (
-                      <Chip tone={i.status === "reconsidering" ? "amber" : i.status === "purchased" ? "mint" : "dim"}>{i.status}</Chip>
-                    )}
-                  </span>
-                  <span className="mt-2 flex flex-wrap gap-1.5">
-                    {i.interpretation.needs.map((n) => (
-                      <span key={n} className="font-mono text-[11px] text-dim">{label(n)}</span>
-                    ))}
-                  </span>
-                </button>
-                {open && <IntentionDetail intention={i} memory={memory} onAction={onAction} onDecide={onDecide} />}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+    <div className="mt-8 space-y-12">
+      {ready.length > 0 && (
+        <section aria-labelledby="ready">
+          <h2 id="ready" className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#003087]">
+            {t.list.ready} <span className="ml-1 tabular-nums">{ready.length}</span>
+          </h2>
+          <ul className="border-b border-line">
+            {ready.map((i) => (
+              <Row key={i.id} i={i} memory={memory} isNew={i.id === newestId} onSelect={onSelect} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {open.length > 0 && (
+        <section aria-labelledby="resting">
+          <h2 id="resting" className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+            {t.list.resting} <span className="ml-1 tabular-nums text-slate-400">{open.length}</span>
+          </h2>
+          <ul className="border-b border-line">
+            {open.map((i) => (
+              <Row key={i.id} i={i} memory={memory} isNew={i.id === newestId} onSelect={onSelect} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {decided.length > 0 && (
+        <details className="group/decided" open={open.length === 0}>
+          <summary className="mb-2 flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-dim hover:text-fg">
+            <span aria-hidden className="transition-transform group-open/decided:rotate-90">›</span>
+            {t.list.decided} <span className="tabular-nums text-slate-400">{decided.length}</span>
+          </summary>
+          <ul className="border-b border-line">
+            {decided.map((i) => (
+              <Row key={i.id} i={i} memory={memory} isNew={i.id === newestId} onSelect={onSelect} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }

@@ -18,8 +18,10 @@ export function toTags(values: unknown, max = 5): string[] {
   return [...new Set(values.map(toTag).filter(Boolean))].slice(0, max);
 }
 
-const text = (v: unknown, max = 200): string | null =>
-  typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+const text = (v: unknown, max = 200): string | null => {
+  if (typeof v !== "string" || !v.trim() || v.trim().toLowerCase() === "null") return null;
+  return v.trim().slice(0, max);
+};
 
 function toSignals(values: unknown, original: string): Signal[] {
   if (!Array.isArray(values)) return [];
@@ -63,5 +65,8 @@ export function normalizeInterpretation(raw: unknown, originalText: string): Int
     timing: text(r.timing, 80),
     budget: toBudget(r.budget),
     signals: toSignals(r.signals, originalText),
+    reasonType: r.reasonType === "emotional" || r.reasonType === "functional" || r.reasonType === "mixed" ? r.reasonType : "mixed",
+    reflection: text(r.reflection, 300)?.split(/\s+/).slice(0, 20).join(" ") || undefined,
+    hasReason: r.hasReason === true,
   };
 }

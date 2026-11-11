@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { capturePayPalOrder } from "@/lib/paypal";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
       captureId: result.captureId,
       amount: result.amount,
       currency: result.currency,
-      capturedAt: new Date().toISOString(),
+      capturedAt: now().toISOString(),
     });
     
   } catch (err) {
