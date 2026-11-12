@@ -141,6 +141,9 @@ export function recordPayPalPurchase(
   intentionId: string,
   data: { orderId: string; captureId: string; capturedAt: string; amount: number; currency: string },
 ): Memory {
+  // Idempotent: the return page can run twice (React dev double-effect, a reload) for the same capture.
+  const current = m.intentions.find((i) => i.id === intentionId);
+  if (current?.paypal?.captureId === data.captureId) return m;
   const bought = applyAction(m, intentionId, "purchase", "Paid with PayPal", data.orderId, undefined, undefined, { amount: data.amount, currency: data.currency });
   return mapIntention(bought, intentionId, (i) => ({
     ...i,

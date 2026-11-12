@@ -168,7 +168,8 @@ export async function createPayPalOrder(
  * Returns verified order details from PayPal.
  */
 export async function capturePayPalOrder(
-  orderId: string
+  orderId: string,
+  expectedIntentionId?: string,
 ): Promise<{ success: boolean; amount: number; currency: string; captureId: string }> {
   if (!/^[A-Za-z0-9_-]{3,80}$/.test(orderId)) {
     throw new Error("Invalid PayPal order ID");
@@ -177,8 +178,12 @@ export async function capturePayPalOrder(
   const token = await getAccessToken();
   const safeOrderId = encodeURIComponent(orderId);
   const existingRes = await fetch(`${config.baseUrl}/v2/checkout/orders/${safeOrderId}`, { headers: { Authorization: `Bearer ${token}` } });
-  if (existingRes.ok) {
+  if (!existingRes.ok) throw new Error(`PayPal order lookup failed: ${existingRes.status}`);
+  {
     const existing: PayPalOrderResponse = await existingRes.json();
+    // The order must be the one WhyBuy created for this intention: custom_id is set server-side at creation.
+    const unitCustomId = (existing.purchase_units?.[0] as any)?.custom_id;
+    if (expectedIntentionId && unitCustomId !== expectedIntentionId.slice(0, 127)) throw new Error("PayPal order does not belong to this intention");
     if (existing.status === "COMPLETED") {
       const unit = existing.purchase_units?.[0] as any;
       const capture = unit?.payments?.captures?.[0];

@@ -1,5 +1,6 @@
 "use client";
 
+import { RECALL_ENABLED } from "@/lib/flags";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Bell, Check, Clock, Link2, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -66,7 +67,7 @@ export function NotificationCenter({
 
   if (!isOpen) return null;
 
-  const all = [...(memory.notifications ?? [])].filter((n) => process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" || n.type !== "memory_recall").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const all = [...(memory.notifications ?? [])].filter((n) => RECALL_ENABLED || n.type !== "memory_recall").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const dismissedCount = all.filter((n) => n.status === "dismissed").length;
   const visible = showDismissed ? all : all.filter((n) => n.status !== "dismissed");
 

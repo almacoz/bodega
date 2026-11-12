@@ -153,7 +153,8 @@ export async function POST(req: Request) {
   const recent = toRecent(body.recent);
   const payload = JSON.stringify({
     model: LLM_MODEL,
-    temperature: 0.1,
+    // Gemini 3.x removed sampling parameters; keep low temperature for other providers (e.g. Ollama).
+    ...(/gemini-3/i.test(LLM_MODEL) ? {} : { temperature: 0.1 }),
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt(toTags(body.knownNeeds, 40), toTags(body.knownCategories, 20), recent) },
@@ -183,7 +184,10 @@ export async function POST(req: Request) {
   }
 
   if (!res || !res.ok) {
-    return fail(`The AI provider returned an error (${res?.status ?? "unknown"}). Please try again.`, 502);
+    // Surface the provider's own message (never the key) so misconfiguration is visible.
+    const detail = res ? await res.json().then((d) => String(d?.error?.message ?? d?.message ?? "")).catch(() => "") : "";
+    // Provider detail only in development (passed via `detail`, which fail() strips in production).
+    return fail(`The AI provider returned an error (${res?.status ?? "unknown"}). Please try again.`, 502, detail.slice(0, 200) || undefined);
   }
 
   const data = await res.json().catch(() => null);

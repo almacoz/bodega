@@ -5,6 +5,8 @@ import { Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { now } from "@/lib/clock";
 import type { Budget } from "@/lib/budget";
+import type { PriceScan } from "@/lib/types";
+import { Search } from "lucide-react";
 import { money } from "./ui";
 
 const monthName = (lang: string) => {
@@ -83,6 +85,27 @@ export function PriceAsk({ onSave }: { onSave: (n: number) => void }) {
     <div className="rounded-2xl border border-line p-4">
       <p className="text-[15px] font-semibold text-fg">{t.story.approxPrice}</p>
       <AmountForm label={t.budget.priceAsk} cta={t.budget.save} onSave={onSave} />
+    </div>
+  );
+}
+
+/** Real store prices next to the person's own estimate and budget. Source always visible. */
+export function PriceScanNote({ scan, estimate, budget, spent }: { scan: PriceScan; estimate?: number | null; budget: Budget | null; spent: number }) {
+  const { t, lang } = useI18n();
+  const m = (n: number) => money(n, scan.currency, lang);
+  const left = budget ? Math.max(0, budget.amount - spent) : null;
+  const tooLow = typeof estimate === "number" && estimate > 0 && estimate < scan.low * 0.6;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+        <Search size={15} aria-hidden className="text-[#0070BA]" /> {t.scan.range(m(scan.low), m(scan.high))}
+        <span className="font-normal text-dim">· {t.scan.typical(m(scan.typical))}</span>
+      </p>
+      {tooLow && <p className="mt-2 text-sm text-amber-900">{t.scan.low(m(estimate as number))}</p>}
+      {!estimate && left !== null && (
+        <p className="mt-2 text-sm text-fg">{scan.typical > left ? t.scan.over(m(scan.typical - left)) : t.scan.share(left > 0 ? Math.round((scan.typical / left) * 100) : 100)}</p>
+      )}
+      <p className="mt-2 text-[11px] text-slate-500">{t.scan.source(scan.count)}</p>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "whybuy",
   "version": "1.0.0",
-  "description": "",
+  "description": "The pause between wanting and buying: a memory for purchase decisions with a PayPal Sandbox demo.",
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@ai-sdk/google": "^4.0.114",
     "@paypal/agent-toolkit": "^1.11.0",

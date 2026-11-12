@@ -1,5 +1,6 @@
 "use client";
 
+import { RECALL_ENABLED } from "@/lib/flags";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Clock, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -8,7 +9,8 @@ import type { Action, DecisionReminder, EventType, Intention, LinkState, Memory,
 import { ProductSection } from "./ProductSection";
 import { now } from "@/lib/clock";
 import { Recall } from "./Recall";
-import { BudgetImpact, PriceAsk } from "./Budget";
+import { BudgetImpact, PriceAsk, PriceScanNote } from "./Budget";
+import { scanPrices } from "@/lib/priceScan";
 import { DetailStory } from "./DetailStory";
 import { itemPrice, type Budget } from "@/lib/budget";
 import { Btn, cap, fmtDate, fmtDateTime, Label, money, StatusMark } from "./ui";
@@ -63,6 +65,8 @@ export function IntentionDetail({
   budget = null,
   spent = 0,
   onSetPrice,
+  onWaitUntil,
+  onPriceScan,
 }: {
   intention: Intention;
   memory: Memory;
@@ -83,6 +87,8 @@ export function IntentionDetail({
   budget?: Budget | null;
   spent?: number;
   onSetPrice?: (id: string, amount: number) => void;
+  onWaitUntil?: (id: string, iso: string) => void;
+  onPriceScan?: (id: string, scan: import("@/lib/types").PriceScan) => void;
 }) {
   const { lang, t } = useI18n();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -130,6 +136,23 @@ export function IntentionDetail({
     ? { id: "proposal", name: cap(i.interpretation.subject), price: Number(proposal.value), currency: proposal.currency, merchant: undefined as string | undefined }
     : undefined);
   const approxPrice = itemPrice(i);
+  const budgetLeft = budget ? { amount: Math.max(0, budget.amount - spent), currency: budget.currency } : null;
+  // The price that matters at decision time: the chosen product, else the rough estimate.
+  const decisionPrice = chosen?.price && chosen.price > 0 ? chosen.price : approxPrice?.amount;
+  const overBudget = !!budgetLeft && typeof decisionPrice === "number" && decisionPrice > budgetLeft.amount;
+  const [scanState, setScanState] = useState<"idle" | "busy" | "none">("idle");
+  const runScan = async () => {
+    setScanState("busy");
+    const result = await scanPrices(i.interpretation.subject, now().toISOString());
+    if (result) { onPriceScan?.(i.id, result); setScanState("idle"); } else setScanState("none");
+  };
+  const userEstimate = i.interpretation.budget?.amount ?? (i.source === "human" && i.price ? Number(i.price.value) : null);
+  const scanBlock = i.status === "bought" || i.status === "purchased" ? null : i.priceScan
+    ? <PriceScanNote scan={i.priceScan} estimate={userEstimate} budget={budget} spent={spent} />
+    : onPriceScan
+      ? <div className="text-sm">{scanState === "none" ? <p className="text-dim">{t.scan.none}</p> : <button type="button" onClick={runScan} disabled={scanState === "busy"} className="font-medium text-[#0070BA] underline disabled:opacity-50">{scanState === "busy" ? t.scan.checking : `🔎 ${t.scan.check}`}</button>}</div>
+      : null;
+  const firstOfNextMonth = () => { const n = now(); return new Date(n.getFullYear(), n.getMonth() + 1, 1, 9).toISOString(); };
   // Deciding means naming the real thing: without a priced product there is nothing for PayPal to pay for.
   const needsProduct = i.status === "ready" && mode !== "checkout" && !(chosen?.price && chosen.price > 0);
   const purchaseEvent = [...i.events].reverse().find((e) => e.type === "purchased");
@@ -178,7 +201,7 @@ export function IntentionDetail({
   }
 
   const EVENT_TEXT: Record<EventType, string> = t.detail.events;
-  const visibleEvents = process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" ? i.events : i.events.filter((event) => !LINK_EVENTS.includes(event.type));
+  const visibleEvents = RECALL_ENABLED ? i.events : i.events.filter((event) => !LINK_EVENTS.includes(event.type));
   const archiveReasons = [t.detail.reasons.gotIt, t.detail.reasons.noLongerNeed, t.detail.reasons.other];
 
   return (
@@ -241,7 +264,7 @@ export function IntentionDetail({
           </section>
 
           {/* 2. Did you consider something similar before? */}
-          {process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" && (confirmedIntentions.length > 0 || unsureLinks.length > 0 || unasked) && (
+          {RECALL_ENABLED && (confirmedIntentions.length > 0 || unsureLinks.length > 0 || unasked) && (
             <section className="space-y-5 border-t border-line pt-8" aria-labelledby="similar">
               <h3 id="similar">
                 <Label>{t.detail.similarTitle}</Label>
@@ -300,7 +323,7 @@ export function IntentionDetail({
                   {purchaseEvent?.amount !== undefined && purchaseEvent.currency && ` · ${money(purchaseEvent.amount, purchaseEvent.currency, lang)}`}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-emerald-800/80">{t.detail.receiptDesc}</p>
-                <p className="mt-2 text-sm text-emerald-900">{t.detail.whyPrefix} “{i.rawText}”</p>
+                <p className="mt-2 text-sm text-emerald-900">{t.detail.whyPrefix} “{it.purpose || i.rawText}”</p>
                 <p className="mt-1 text-xs text-emerald-800/80">{t.detail.waited(i.waitDays)}</p>
                 {purchaseEvent?.paypalOrderId && (
                   <p className="mt-2 font-mono text-[11px] text-emerald-800/70">
@@ -315,10 +338,11 @@ export function IntentionDetail({
                 <Label>{t.detail.nextTitle}</Label>
               </h3>
 
-              {i.status === "waiting" ? <div className="space-y-3 py-3"><p className="text-lg font-semibold text-fg">{t.detail.waitingUntil(fmtDate(i.waitUntil, lang))}</p>{approxPrice ? <BudgetImpact price={approxPrice} budget={budget} spent={spent} /> : budget ? <PriceAsk onSave={(n) => onSetPrice?.(i.id, n)} /> : null}<div className="flex gap-4 text-sm"><button type="button" className="underline" onClick={() => onDecideNow(i.id)}>{t.detail.decideNow}</button><button type="button" className="underline" onClick={() => onLetGo(i.id)}>{t.detail.letItGo}</button></div></div>
+              {i.status === "waiting" ? <div className="space-y-3 py-3"><p className="text-lg font-semibold text-fg">{t.detail.waitingUntil(fmtDate(i.waitUntil, lang))}</p>{approxPrice ? <BudgetImpact price={approxPrice} budget={budget} spent={spent} /> : budget ? <PriceAsk onSave={(n) => onSetPrice?.(i.id, n)} /> : null}{scanBlock}<div className="flex gap-4 text-sm"><button type="button" className="underline" onClick={() => onDecideNow(i.id)}>{t.detail.decideNow}</button><button type="button" className="underline" onClick={() => onLetGo(i.id)}>{t.detail.letItGo}</button></div></div>
               : i.status === "let_go" || i.status === "archived" ? <div className="space-y-3 py-3"><p className="text-sm font-medium text-fg">{t.detail.letGoUndo}</p><button type="button" className="text-sm underline" onClick={() => onUndoLetGo(i.id)}>{t.composer.undo}</button></div>
-              : i.status === "ready" && mode !== "checkout" ? <div className="space-y-4 py-3"><p className="text-lg font-semibold text-fg">{t.detail.readyWhen}</p>{chosen?.price && chosen.price > 0 ? <><BudgetImpact price={{ amount: chosen.price, currency: chosen.currency || "USD" }} budget={budget} spent={spent} /><button type="button" onClick={() => setMode("checkout")} className="w-full rounded-2xl bg-[#0070BA] py-4 text-base font-semibold text-white hover:bg-[#005EA6]">{t.detail.approve} · {money(chosen.price, chosen.currency || "USD", lang)}</button></> : <div className="rounded-2xl border-2 border-[#0070BA]/30 bg-[#0070BA]/[0.03] p-4">
-                {approxPrice && <div className="mb-4"><BudgetImpact price={approxPrice} budget={budget} spent={spent} /></div>}
+              : i.status === "ready" && mode !== "checkout" ? <div className="space-y-4 py-3"><p className="text-lg font-semibold text-fg">{t.detail.readyWhen}</p>{chosen?.price && chosen.price > 0 ? <><BudgetImpact price={{ amount: chosen.price, currency: chosen.currency || "USD" }} budget={budget} spent={spent} /><button type="button" onClick={() => setMode("checkout")} className="w-full rounded-2xl bg-[#0070BA] py-4 text-base font-semibold text-white hover:bg-[#005EA6]">{t.detail.approve} · {money(chosen.price, chosen.currency || "USD", lang)}</button>{chosenProduct?.url && <a href={chosenProduct.url} target="_blank" rel="noopener noreferrer" className="block w-full rounded-2xl border border-line bg-white py-3 text-center text-sm font-semibold text-fg hover:bg-slate-50">{t.detail.visitStore(chosenProduct.merchant || "store")}<span className="block text-xs font-normal text-dim">{t.detail.visitStoreHint}</span></a>}</> : <div className="rounded-2xl border-2 border-[#0070BA]/30 bg-[#0070BA]/[0.03] p-4">
+                {approxPrice && !(i.products ?? []).some((p) => typeof p.price === "number" && p.price > 0) && <div className="mb-4"><BudgetImpact price={approxPrice} budget={budget} spent={spent} /></div>}
+                {scanBlock && <div className="mb-4">{scanBlock}</div>}
                 <p className="text-lg font-semibold text-[#003087]">{t.story.exactly}</p>
                 <p className="mt-1 text-sm text-dim">{t.story.exactlySub}</p>
                 <div className="mt-2">
@@ -331,9 +355,10 @@ export function IntentionDetail({
                     defaultSearchQuery={it.subject}
                     startAdding={!(i.products?.length)}
                     title=""
+                    budgetLeft={budgetLeft}
                   />
                 </div>
-              </div>}<div className="flex gap-4 text-sm"><button type="button" className="underline" onClick={() => onWaitAgain(i.id, 3)}>{t.detail.waitMore}</button><button type="button" className="underline" onClick={() => onLetGo(i.id)}>{t.detail.letItGo}</button></div></div>
+              </div>}{overBudget && onWaitUntil && <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4"><button type="button" onClick={() => onWaitUntil(i.id, firstOfNextMonth())} className="w-full rounded-xl bg-white py-3 text-sm font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-50">{t.budget.nextMonth} ⏳</button><p className="mt-2 text-xs text-amber-900/80">{t.budget.nextMonthHint}</p></div>}<div className="flex gap-4 text-sm"><button type="button" className="underline" onClick={() => onWaitAgain(i.id, 3)}>{t.detail.waitMore}</button><button type="button" className="underline" onClick={() => onLetGo(i.id)}>{t.detail.letItGo}</button></div></div>
               : mode === "checkout" && chosen && chosen.price ? (
                 <div className="rise rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-900">{t.detail.checkoutTitle}</p>
@@ -341,6 +366,9 @@ export function IntentionDetail({
                   <p className="mt-1 text-lg font-medium tabular-nums text-fg">{money(chosen.price, chosen.currency || "USD", lang)}</p>
                   <p className="mt-3 text-sm leading-relaxed text-amber-950/80">
                     {t.detail.checkoutDesc(chosen.merchant || t.detail.theMerchant)}
+                  </p>
+                  <p className="mt-2 text-xs text-amber-900/70">
+                    {chosenProduct ? (chosenProduct.source === "channel3" ? t.detail.priceSource.channel3(chosenProduct.merchant || "the store") : chosenProduct.source === "url" ? t.detail.priceSource.url : t.detail.priceSource.manual) : t.detail.priceSource.agent}
                   </p>
                   {payError && (
                     <p role="alert" className="mt-3 text-sm font-medium text-amber-900">
@@ -507,6 +535,7 @@ export function IntentionDetail({
               }}
               defaultSearchQuery={it.subject}
               isPurchased={i.status === "purchased" || i.status === "bought"}
+              budgetLeft={budgetLeft}
             />
           </div>}
 

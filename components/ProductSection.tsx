@@ -46,6 +46,7 @@ export function ProductSection({
   isPurchased,
   startAdding = false,
   title,
+  budgetLeft,
 }: {
   products: ProductReference[];
   selectedProductId?: string;
@@ -56,6 +57,8 @@ export function ProductSection({
   isPurchased?: boolean;
   startAdding?: boolean;
   title?: string;
+  /** What's left of this month's budget; when set, each priced item shows whether it fits. */
+  budgetLeft?: { amount: number; currency: string } | null;
 }) {
   const { lang, t } = useI18n();
   const localizedMerchant = (name?: string) => name === "Channel3 Reference" && lang === "es" ? "Referencia de Channel3" : name;
@@ -76,6 +79,14 @@ export function ProductSection({
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [merchant, setMerchant] = useState("");
+
+  const fit = (price?: number) => {
+    if (!budgetLeft || typeof price !== "number" || price <= 0 || isPurchased) return null;
+    const over = price - budgetLeft.amount;
+    return over > 0
+      ? <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">{t.budget.overBy(money(over, budgetLeft.currency, lang))}</span>
+      : <span className="ml-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">{t.budget.fits}</span>;
+  };
 
   const visible = isPurchased ? products.filter((p) => p.id === selectedProductId) : products;
   const pricedResults = results.filter((product) => typeof product.price === "number" && product.price > 0);
@@ -196,6 +207,7 @@ export function ProductSection({
                   </p>
                   <p className="truncate text-sm text-dim">
                     {[localizedMerchant(p.merchant), p.price !== undefined ? money(p.price, p.currency || "USD", lang) : t.detail.noPrice].filter(Boolean).join(" · ")}
+                    {fit(p.price)}
                   </p>
                 </div>
                 {!isPurchased && (
@@ -271,6 +283,7 @@ export function ProductSection({
                           <p className="truncate text-sm font-medium text-fg">{r.name}</p>
                           <p className="truncate text-xs text-dim">
                             {[localizedMerchant(r.merchant), r.price !== undefined ? money(r.price, r.currency || "USD", lang) : null].filter(Boolean).join(" · ")}
+                            {fit(r.price)}
                           </p>
                         </div>
                         <Btn onClick={() => add(r)} className="px-3 py-1.5">

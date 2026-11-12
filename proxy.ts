@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { inspect, clientIp } from "@/lib/shield";
 
 export function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  const verdict = inspect({
+    method: request.method,
+    pathname,
+    rawPath: pathname + search,
+    headers: request.headers,
+    host: request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.host,
+  });
+  if (!verdict.ok) {
+    // One structured line per blocked request, visible in your hosting logs.
+    console.warn(JSON.stringify({ shield: "blocked", reason: verdict.reason, status: verdict.status, ip: clientIp(request.headers), method: request.method, path: pathname.slice(0, 200), ua: (request.headers.get("user-agent") || "").slice(0, 120) }));
+    const blocked = NextResponse.json({ error: verdict.error }, { status: verdict.status });
+    if (verdict.retryAfter) blocked.headers.set("Retry-After", String(verdict.retryAfter));
+    blocked.headers.set("Cache-Control", "no-store");
+    return blocked;
+  }
+
   const response = NextResponse.next();
 
   // HSTS: Force HTTPS for 1 year, include subdomains
@@ -17,7 +35,7 @@ export function proxy(request: NextRequest) {
   response.headers.set("X-Frame-Options", "DENY");
 
   // XSS protection (legacy but still useful)
-  response.headers.set("X-XSS-Protection", "1; mode=block");
+  response.headers.set("X-XSS-Protection", "0"); // modern guidance: disable the legacy auditor, rely on CSP
 
   // Content Security Policy
   // - default-src 'self': only load resources from same origin by default
@@ -44,7 +62,9 @@ export function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
 
   // Permissions Policy: restrict browser features
-  response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+  response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=(), usb=()");
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups"); // PayPal opens popups
+  if (pathname.startsWith("/api/")) response.headers.set("Cache-Control", "no-store");
 
   return response;
 }

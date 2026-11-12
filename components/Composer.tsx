@@ -1,10 +1,15 @@
 "use client";
 
+import { RECALL_ENABLED } from "@/lib/flags";
 import { useState, type ReactNode } from "react";
 import { ArrowUp, Bot, Check, Hourglass, Loader2, PenLine, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { recall } from "@/lib/link";
-import type { Interpretation, LinkState, Memory, Related } from "@/lib/types";
+import type { Interpretation, LinkState, Memory, PriceScan, Related } from "@/lib/types";
+import { scanPrices } from "@/lib/priceScan";
+import { now } from "@/lib/clock";
+import type { Budget } from "@/lib/budget";
+import { PriceScanNote } from "./Budget";
 import { Recall } from "./Recall";
 import { cap } from "./ui";
 
@@ -30,11 +35,23 @@ const FILLER = new Set(["quiero", "quisiera", "comprar", "compra", "comprarme", 
 const contentWords = (s: string) =>
   s.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !FILLER.has(w));
 
+/** Used when the AI is unreachable: the note is kept verbatim and the person says why with one tap. */
+function offlineInterpretation(text: string): Interpretation {
+  const head = text.split(/[,.;:\n]| because | para | porque | for /i)[0].trim();
+  const subject = head.replace(/^(i (want|need|would like)( to (buy|get))?|quiero|quisiera|necesito|me gustaria|me gustaría)( comprar| comprarme| una| un| unos| unas| a| an| some| the)?\s*/i, "").trim() || head;
+  const money = text.match(/(?:\$|usd\s?)(\d[\d.,]*)|(\d[\d.,]*)\s?(?:usd|dollars|dólares|dolares)/i);
+  const amount = money ? Number((money[1] ?? money[2]).replace(/,/g, "")) : NaN;
+  return { language: "en", subject: subject.slice(0, 80), category: "other", purpose: null, needs: [], utility: [], context: null, timing: null, budget: Number.isFinite(amount) && amount > 0 ? { amount, currency: "USD" } : null, signals: [], hasReason: false };
+}
+
 /** A "reason" that only repeats the item's name is not a reason. */
 function lacksReason(interp: Interpretation): boolean {
   if (interp.hasReason === false) return true;
   const purpose = interp.purpose?.trim();
-  if (!purpose) return true;
+  // The model can flag a reason without extracting it as a phrase; the note itself then carries the why.
+  if (!purpose) return interp.hasReason !== true;
+  // A budget is not a reason ("around $1400").
+  if (/^(around|about|approx\.?|roughly|unos|unas|cerca de|aprox\.?|~)?\s*(\$|usd\s?)?\d[\d.,]*\s*(usd|dollars|dólares|dolares)?\s*$/i.test(purpose)) return true;
   const item = new Set(contentWords(interp.subject));
   return contentWords(purpose).every((w) => item.has(w));
 }
@@ -81,6 +98,9 @@ export function Composer({
   onUndo,
   onOpen,
   agentSlot,
+  onPriceScan,
+  budget = null,
+  spent = 0,
 }: {
   memory: Memory;
   onSave: (text: string, interp: Interpretation, waitDays: Wait) => string;
@@ -91,6 +111,9 @@ export function Composer({
   onUndo: (id: string) => void;
   onOpen: (id: string) => void;
   agentSlot?: ReactNode;
+  onPriceScan?: (id: string, scan: PriceScan) => void;
+  budget?: Budget | null;
+  spent?: number;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"me" | "agent">("me");
@@ -104,9 +127,12 @@ export function Composer({
   const [suggested, setSuggested] = useState<Wait>(3);
   const [followup, setFollowup] = useState<{ text: string; interp: Interpretation } | null>(null);
   const [reasonAnswer, setReasonAnswer] = useState("");
+  const [scan, setScan] = useState<PriceScan | null>(null);
 
   function commit(note: string, interp: Interpretation, related: Related | null = null) {
+    setError(null);
     const wait = suggestedWait(interp.reasonType);
+    setError(null);
     setWaitDays(wait);
     setSuggested(wait);
     const id = onSave(note, interp, wait);
@@ -114,6 +140,13 @@ export function Composer({
     setSaved({ id, text: note });
     setResult({ id, interp, related, answer: null });
     setPhase("pause");
+    // One background Channel3 search: real store prices for what was named. Silent if nothing solid comes back.
+    setScan(null);
+    scanPrices(interp.subject, now().toISOString()).then((s) => {
+      if (!s) return;
+      setScan(s);
+      onPriceScan?.(id, s);
+    });
   }
 
   async function remember() {
@@ -149,10 +182,15 @@ export function Composer({
         return;
       }
       // Look back before saving, so the only candidates are things remembered earlier.
-      const related = process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" ? recall(interp, memory, undefined, data.sameProblemAs ?? null) : null;
+      const related = RECALL_ENABLED ? recall(interp, memory, undefined, data.sameProblemAs ?? null) : null;
       commit(note, interp, related);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      // The model is optional: never lose what the person wrote. Ask why with one tap and continue locally.
+      setText("");
+      setFollowup({ text: note, interp: offlineInterpretation(note) });
+      setReasonAnswer("");
+      setPhase("why");
+      setError(t.composer.offline);
     } finally {
       setBusy(false);
     }
@@ -291,6 +329,7 @@ export function Composer({
                   <p className="mt-1 text-sm text-amber-800">{t.story.suggest(suggested)}</p>
                 </div>
               </div>
+              {scan && <div className="rise mt-4"><PriceScanNote scan={scan} estimate={result?.interp.budget?.amount ?? null} budget={budget} spent={spent} /></div>}
               <div className="mt-5 grid grid-cols-4 gap-2">
                 {([1, 3, 7, 0] as const).map((days) => (
                   <button key={days} type="button" onClick={() => chooseWait(days)} aria-pressed={waitDays === days} className={`rounded-2xl border py-3 text-sm font-semibold transition-colors ${waitDays === days ? "border-amber-500 bg-amber-50 text-amber-900" : "border-line bg-white text-dim hover:border-slate-300"}`}>

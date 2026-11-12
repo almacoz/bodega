@@ -43,7 +43,8 @@ const es = {
     title: "La pausa entre querer y comprar.",
     sub: "La IA compra en segundos. WhyBuy te da una pausa antes.",
   },
-  budget: { ask: "¿Cuánto quieres gastar en compras este mes?", save: "Guardar", edit: "Editar", spent: (month: string, spent: string, total: string) => `${month}: llevas ${spent} de ${total}`, left: (amt: string) => `Te quedan ${amt} este mes.`, uses: (amt: string, pct: number) => `Esto usaría ${amt}, el ${pct}% de lo que te queda.`, over: (amt: string) => `Te pasarías por ${amt}.`, none: "Define tu presupuesto del mes en la pantalla principal para ver cuánto pesa esta compra.", priceAsk: "¿Cuánto cuesta más o menos?" },
+  scan: { range: (lo: string, hi: string) => `En tiendas hoy: ${lo} – ${hi}`, typical: (t: string) => `típico ${t}`, source: (n: number) => `Channel3 · ${n} ofertas reales · no es una cotización`, low: (e: string) => `Tu estimado de ${e} está por debajo de lo que listan las tiendas. Si piensas en usado o más pequeño, perfecto; si no, quizá quieras ajustarlo.`, share: (pct: number) => `Al precio típico usaría el ${pct}% de lo que te queda este mes.`, over: (a: string) => `Al precio típico te pasarías por ${a} este mes.`, check: "Ver precios en tiendas", checking: "Buscando precios…", none: "No encontré suficientes ofertas parecidas para dar un rango." },
+  budget: { ask: "¿Cuánto quieres gastar en compras este mes?", save: "Guardar", edit: "Editar", spent: (month: string, spent: string, total: string) => `${month}: llevas ${spent} de ${total}`, left: (amt: string) => `Te quedan ${amt} este mes.`, uses: (amt: string, pct: number) => `Esto usaría ${amt}, el ${pct}% de lo que te queda.`, over: (amt: string) => `Te pasarías por ${amt}.`, none: "Define tu presupuesto del mes en la pantalla principal para ver cuánto pesa esta compra.", priceAsk: "¿Cuánto cuesta más o menos?", fits: "Cabe en tu presupuesto", overBy: (a: string) => `Te pasas por ${a}`, nextMonth: "Esperar al próximo mes", nextMonthHint: "Tu presupuesto se renueva el día 1. WhyBuy te vuelve a preguntar entonces." },
   story: { step1: "Lo quieres", step2: "¿Por qué?", step3: "La pausa", whyTitle: (s: string) => `¿Por qué quieres ${s}?`, chips: { need: "Lo necesito", replace: "Reemplaza algo", saw: "Lo vi y me gustó", treat: "Me lo quiero dar" }, orWrite: "…o dilo con tus palabras", skip: "Omitir", pauseTitle: "¿Cuántos días te lo piensas?", suggest: (n: number) => (n === 0 ? "Suena a necesidad: puedes decidir ya." : n === 1 ? "Te sugiero 1 día." : `Te sugiero ${n} días.`), done: "Pensarlo", doneNow: "Decidir ya", done1: "con su porqué", exactly: "¿Qué vas a comprar exactamente?", noPriced: "No encontré productos con precio. Prueba otras palabras o pega el enlace de la tienda.", exactlySub: "Elige el producto real: búscalo, pega el enlace o escríbelo. Eso es lo que PayPal pagará.", approxPrice: "¿Cuánto cuesta más o menos? (para tu presupuesto)", youWrote: "Escribiste:", resting: (s: string) => `Hecho. Mañana te pregunto si aún quieres ${s.toLocaleLowerCase()}.`, readyNow: (s: string) => `${s} está listo para decidir.`, me: "Yo lo escribo", agent: "Mi asistente IA", today: "Hoy te pregunto" },
   flow: { want: "Lo quieres", wantSub: "qué y por qué", rest: "Lo piensas", restSub: "¿aún lo quieres?", decide: "Decides", decideSub: "PayPal o lo sueltas" },
   wait: { question: "¿Cuánto quieres esperar antes de decidir?", day: (n: number) => `${n} día${n === 1 ? "" : "s"}`, none: "Sin espera", emotional: "Parece un impulso; una pausa breve puede ayudar.", functional: "Parece una necesidad; no se sugiere una pausa.", follow: "¿Para qué lo necesitas?", save: "Guardar", skip: "Omitir", checkin: "¿Aún lo quieres?", yes: "Sí", no: "Ya no", more: (n: number) => `${n} más en espera · Revisar`, undo: (s: string) => `Dejaste ir ${s}.`, undoLabel: "Deshacer", letGo: "Dejado ir. Puedes deshacerlo.", waiting: (n: number, total: number) => `Día ${n} de ${total}`, youSaid: "Dijiste:", dayDot: (n: number, answer: string) => `Día ${n}: ${answer === "yes" ? "sí" : answer === "no" ? "no" : "sin respuesta"}`, resetDemo: "Restablecer datos de demo", resetConfirm: "¿Restablecer intenciones y reloj de demo? Se conservará la copia v1.", skipDay: "Demo: avanzar un día ⏭ · Día de demo +" },
@@ -63,6 +64,7 @@ const es = {
     open: "Ver",
     saved: "Guardado —",
     readingMeaning: "Leyendo lo que quisiste decir…",
+    offline: "La IA no respondió. Guardé tu nota tal cual; dime por qué con un toque.",
   },
   recall: {
     eyebrow: "Ya pasaste por aquí",
@@ -147,6 +149,8 @@ const es = {
     why: "¿Por qué?",
     reasons: { gotIt: "Lo conseguí por otro lado", noLongerNeed: "Ya no lo necesito", other: "Otro motivo" },
     checkoutTitle: "Pago de prueba · PayPal Sandbox",
+    visitStore: (m: string) => `Abrir en ${m} ↗`, visitStoreHint: "Compra real: se hace en la tienda, no en WhyBuy.",
+    priceSource: { manual: "Precio tal como lo escribiste; WhyBuy no lo verificó.", url: "Precio tal como lo anotaste del enlace; WhyBuy no lo verificó.", channel3: (m: string) => `Precio según la oferta de ${m} en Channel3 al buscar; no es una cotización verificada.`, agent: "Precio que le diste a tu asistente; WhyBuy no lo verificó." },
     checkoutDesc: (m: string) =>
       `Esta es una transacción de prueba con la cuenta Sandbox de WhyBuy, no una compra realizada a ${m}. No se cobrará dinero real ni se enviará ningún pedido.`,
     theMerchant: "la tienda",
@@ -272,7 +276,8 @@ const en: Dict = {
     title: "The pause between wanting and buying.",
     sub: "AI buys in seconds. WhyBuy gives you a pause first.",
   },
-  budget: { ask: "How much do you want to spend on shopping this month?", save: "Save", edit: "Edit", spent: (month: string, spent: string, total: string) => `${month}: ${spent} of ${total} spent`, left: (amt: string) => `You have ${amt} left this month.`, uses: (amt: string, pct: number) => `This would use ${amt}, ${pct}% of what's left.`, over: (amt: string) => `You'd go ${amt} over.`, none: "Set a monthly budget on the home screen to see how much this purchase weighs.", priceAsk: "Roughly how much is it?" },
+  scan: { range: (lo: string, hi: string) => `In stores today: ${lo} – ${hi}`, typical: (t: string) => `typical ${t}`, source: (n: number) => `Channel3 · ${n} real offers · not a quote`, low: (e: string) => `Your estimate of ${e} is below what stores list. If you mean used or smaller, great; if not, you may want to adjust it.`, share: (pct: number) => `At the typical price it would use ${pct}% of what's left this month.`, over: (a: string) => `At the typical price you'd go ${a} over this month.`, check: "Check store prices", checking: "Checking prices…", none: "Not enough similar offers to give a range." },
+  budget: { ask: "How much do you want to spend on shopping this month?", save: "Save", edit: "Edit", spent: (month: string, spent: string, total: string) => `${month}: ${spent} of ${total} spent`, left: (amt: string) => `You have ${amt} left this month.`, uses: (amt: string, pct: number) => `This would use ${amt}, ${pct}% of what's left.`, over: (amt: string) => `You'd go ${amt} over.`, none: "Set a monthly budget on the home screen to see how much this purchase weighs.", priceAsk: "Roughly how much is it?", fits: "Fits your budget", overBy: (a: string) => `${a} over budget`, nextMonth: "Wait until next month", nextMonthHint: "Your budget resets on the 1st. WhyBuy will ask you again then." },
   story: { step1: "Want it", step2: "Why?", step3: "The pause", whyTitle: (s: string) => `Why do you want ${s}?`, chips: { need: "I need it", replace: "Replaces something", saw: "Saw it, liked it", treat: "A treat for me" }, orWrite: "…or say it in your words", skip: "Skip", pauseTitle: "How many days to sleep on it?", suggest: (n: number) => (n === 0 ? "Sounds like a need: you can decide now." : n === 1 ? "I suggest 1 day." : `I suggest ${n} days.`), done: "Sleep on it", doneNow: "Decide now", done1: "with its why", exactly: "What exactly are you buying?", noPriced: "No priced products found. Try other words or paste the store link.", exactlySub: "Pick the real product: search it, paste a link or type it. That's what PayPal will pay for.", approxPrice: "Roughly how much is it? (for your budget)", youWrote: "You wrote:", resting: (s: string) => `Done. Tomorrow I'll ask if you still want ${s.toLocaleLowerCase()}.`, readyNow: (s: string) => `${s} is ready to decide.`, me: "I'll write it", agent: "My AI assistant", today: "Today's question" },
   flow: { want: "Want it", wantSub: "what & why", rest: "Sleep on it", restSub: "still want it?", decide: "Decide", decideSub: "PayPal or let go" },
   wait: { question: "How long do you want to wait before deciding?", day: (n: number) => `${n} day${n === 1 ? "" : "s"}`, none: "No wait", emotional: "Sounds like an impulse — a short pause can help.", functional: "Sounds like a need — no pause suggested.", follow: "What's it for?", save: "Save", skip: "Skip", checkin: "Still want it?", yes: "Yes", no: "Not anymore", more: (n: number) => `${n} more waiting · Review`, undo: (s: string) => `Let go of ${s}.`, undoLabel: "Undo", letGo: "Let go. You can undo this.", waiting: (n: number, total: number) => `Day ${n} of ${total}`, youSaid: "You said:", dayDot: (n: number, answer: string) => `Day ${n}: ${answer}`, resetDemo: "Reset demo data", resetConfirm: "Reset demo intentions and demo clock? Your v1 backup will be kept.", skipDay: "Demo: skip a day ⏭ · Demo day +" },
@@ -292,6 +297,7 @@ const en: Dict = {
     open: "Open",
     saved: "Saved —",
     readingMeaning: "Reading what you meant…",
+    offline: "The AI didn’t respond. Your note is saved as written; tell me why with one tap.",
   },
   recall: {
     eyebrow: "This sounds like something you wanted before.",
@@ -376,6 +382,8 @@ const en: Dict = {
     why: "Why?",
     reasons: { gotIt: "Got it elsewhere", noLongerNeed: "Don’t need it anymore", other: "Something else" },
     checkoutTitle: "Test payment · PayPal Sandbox",
+    visitStore: (m: string) => `Open at ${m} ↗`, visitStoreHint: "Real purchase: happens at the store, not in WhyBuy.",
+    priceSource: { manual: "Price as you typed it; WhyBuy did not verify it.", url: "Price as you noted it from the link; WhyBuy did not verify it.", channel3: (m: string) => `Price from ${m}'s offer on Channel3 at search time; not a verified quote.`, agent: "Price you gave your assistant; WhyBuy did not verify it." },
     checkoutDesc: (m: string) =>
       `This is a test transaction using WhyBuy’s PayPal Sandbox account, not a real purchase from ${m}. No real money will be charged and no order will be placed.`,
     theMerchant: "the store",

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
     
     // Capture payment and get verified details from PayPal
-    const result = await capturePayPalOrder(orderId);
+    const result = await capturePayPalOrder(orderId, intentionId);
     
     if (!result.success) {
       return fail("Payment capture failed.", 400);
@@ -73,6 +73,9 @@ export async function POST(req: Request) {
         return fail("Payment method was declined. Please try a different payment method.", 400);
       }
       
+      if (err.message.includes("does not belong")) {
+        return fail("This PayPal order does not match the item being bought.", 400);
+      }
       if (err.message.includes("not completed")) {
         return fail("Payment was not completed. Please try again.", 400);
       }

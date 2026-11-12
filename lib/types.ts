@@ -84,6 +84,17 @@ export interface Intention {
   events: IntentEvent[]; // the history lives with the intention
   products?: ProductReference[];
   selectedProductId?: string;
+  /** Real store prices for this kind of item (Channel3), taken when the intention was saved. */
+  priceScan?: PriceScan;
+}
+
+export interface PriceScan {
+  low: number;
+  typical: number;
+  high: number;
+  currency: string;
+  count: number;
+  at: string;
 }
 
 export type ReasonType = "emotional" | "functional" | "mixed";

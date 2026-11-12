@@ -1,5 +1,6 @@
 "use client";
 
+import { RECALL_ENABLED } from "@/lib/flags";
 import { useCallback, useEffect, useState } from "react";
 import { Bell, Settings } from "lucide-react";
 import { Composer } from "@/components/Composer";
@@ -141,7 +142,7 @@ export default function Home() {
     setMemory((m) => {
       if (!m) return m;
       const updated = updateIntentionInterpretation(m, id, interp);
-      return process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" && related ? createRecallNotification(updated, id, related, lang) : updated;
+      return RECALL_ENABLED && related ? createRecallNotification(updated, id, related, lang) : updated;
     });
   }
   const setWait = (id: string, days: 0 | 1 | 3 | 7) => setMemory((m) => m && ({ ...m, intentions: m.intentions.map((i) => i.id === id ? chooseWait(i, days) : i) }));
@@ -171,6 +172,8 @@ export default function Home() {
     setMemory((m) => m && (m.intentions.some((i) => i.id === intention.id) ? m : { ...m, intentions: [...m.intentions, intention] }));
     setNewestId(intention.id);
   };
+  const waitUntilAction = (id: string, iso: string) => setMemory((m) => m && ({ ...m, intentions: m.intentions.map((i) => i.id === id ? { ...i, status: "waiting" as const, waitUntil: iso } : i) }));
+  const priceScanAction = (id: string, scan: import("@/lib/types").PriceScan) => setMemory((m) => m && ({ ...m, intentions: m.intentions.map((i) => i.id === id ? { ...i, priceScan: scan } : i) }));
   const setPrice = (id: string, amount: number) => setMemory((m) => m && ({ ...m, intentions: m.intentions.map((i) => i.id === id ? { ...i, price: { value: amount.toFixed(2), currency: budget?.currency ?? "USD" } } : i) }));
   const saveReflection = (id: string, text: string) => setMemory((m) => m && addReflectionNote(m, id, text));
 
@@ -179,7 +182,7 @@ export default function Home() {
   const displayedCheckin = pendingCheckins.find((i) => i.id === selectedCheckinId) ?? pendingCheckins[0];
   const nextCheckin = pendingCheckins.find((i) => i.id !== displayedCheckin?.id);
   const selectedReminder = selected ? memory?.reminders?.find((r) => r.intentionId === selected.id) : undefined;
-  const unreadCount = (memory?.notifications ?? []).filter((n) => n.status === "unread" && (process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" || n.type !== "memory_recall")).length;
+  const unreadCount = (memory?.notifications ?? []).filter((n) => n.status === "unread" && (RECALL_ENABLED || n.type !== "memory_recall")).length;
 
   function openNotifications() {
     checkDueReminders();
@@ -239,7 +242,7 @@ export default function Home() {
           })}
           {nextCheckin && <button type="button" onClick={() => setSelectedCheckinId(nextCheckin.id)} className="-mt-9 mb-12 text-sm text-dim underline">{t.wait.more(pendingCheckins.length - 1)}</button>}
           {memory.intentions.filter((i) => i.status === "let_go" && justLetGo.includes(i.id)).map((i) => <UndoNotice key={i.id} title={cap(i.interpretation.subject)} onUndo={() => undoLetGoAction(i.id)} />)}
-          <Composer memory={memory} onSave={save} onInterpret={finishInterpretation} onWaitDays={setWait} onDecide={decide} onUndo={undo} onOpen={setSelectedId} onSaveReflection={saveReflection} agentSlot={<Assistant embedded onProposal={addAgentProposal} onOpen={setSelectedId} />} />
+          <Composer memory={memory} onSave={save} onInterpret={finishInterpretation} onWaitDays={setWait} onDecide={decide} onUndo={undo} onOpen={setSelectedId} onSaveReflection={saveReflection} agentSlot={<Assistant embedded onProposal={addAgentProposal} onOpen={setSelectedId} />} onPriceScan={priceScanAction} budget={budget} spent={spentThisMonth(memory, now())} />
           <div className="mt-10">
             <BudgetCard budget={budget} spent={spentThisMonth(memory, now())} onSave={updateBudget} />
           </div>
@@ -273,6 +276,8 @@ export default function Home() {
           budget={budget}
           spent={spentThisMonth(memory, now())}
           onSetPrice={setPrice}
+          onWaitUntil={waitUntilAction}
+          onPriceScan={priceScanAction}
         />
       )}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { RECALL_ENABLED } from "@/lib/flags";
 import { Link2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { Intention, Memory } from "@/lib/types";
@@ -28,7 +29,7 @@ function confirmedWith(i: Intention, memory: Memory): string[] {
 
 function Row({ i, memory, isNew, onSelect }: { i: Intention; memory: Memory; isNew: boolean; onSelect: (id: string) => void }) {
   const { lang, t } = useI18n();
-  const linked = process.env.NEXT_PUBLIC_RECALL_ENABLED === "true" ? confirmedWith(i, memory) : [];
+  const linked = RECALL_ENABLED ? confirmedWith(i, memory) : [];
   const chosen = i.products?.find((p) => p.id === i.selectedProductId);
   const options = i.products?.length ?? 0;
   const faded = i.status === "archived" || i.status === "let_go";
