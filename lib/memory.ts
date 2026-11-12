@@ -94,7 +94,7 @@ export function updateIntentionInterpretation(m: Memory, id: string, interpretat
 
 export function addReflectionNote(m: Memory, id: string, note: string): Memory {
   const clean = note.trim();
-  return clean ? mapIntention(m, id, (i) => ({ ...i, events: [...i.events, makeEvent("continued", `Reflection: ${clean}`)] })) : m;
+  return clean ? mapIntention(m, id, (i) => ({ ...i, events: [...i.events, makeEvent("reflected", clean)] })) : m;
 }
 
 const ACTIONS: Record<Action, { status: Intention["status"]; type: EventType }> = {

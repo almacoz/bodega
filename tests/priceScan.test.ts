@@ -17,6 +17,15 @@ describe("summarizePrices", () => {
     expect(scan!.count).toBe(3);
   });
 
+  it("requires model tokens like M4 to match", () => {
+    expect(summarizePrices("Mac mini M4", [
+      { name: "Apple Mac mini M4 16GB 256GB", price: 599 },
+      { name: "Lipglass - Mini MAC, Clear", price: 19.5 },
+      { name: "Mini MAC Nudes Lip Combo", price: 25 },
+      { name: "Mac mini M2 refurbished", price: 399 },
+    ], at)).toBeNull();
+  });
+
   it("trims the extremes when there are enough offers", () => {
     const scan = summarizePrices("TV OLED", [
       { name: "LG OLED AI TV", price: 299.99 },

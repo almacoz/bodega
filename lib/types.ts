@@ -33,6 +33,7 @@ export type EventType =
   | "captured"
   | "continued"
   | "reconsidered"
+  | "reflected"
   | "archived"
   | "purchased"
   | "link_confirmed"

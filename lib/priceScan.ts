@@ -15,12 +15,15 @@ export function summarizePrices(subject: string, listings: Listing[], at: string
   const want = words(subject);
   if (!want.length) return null;
   const need = Math.min(2, want.length);
+  const models = want.filter((w) => /\d/.test(w));
   const priced = listings.filter((l) => typeof l.price === "number" && l.price > 0 && typeof l.name === "string");
   const currency = priced[0]?.currency || "USD";
   const prices = priced
     .filter((l) => (l.currency || "USD") === currency)
     .filter((l) => {
       const have = new Set(words(l.name as string));
+      // Model tokens ("m4", "c3", "16gb") must all match: "Mini MAC lip gloss" is not a "Mac mini M4".
+      if (!models.every((w) => have.has(w))) return false;
       return want.filter((w) => have.has(w)).length >= need;
     })
     .map((l) => l.price as number)
