@@ -521,8 +521,8 @@ export function IntentionDetail({
             </section>
           )}
 
-          {/* 3. Options you're weighing */}
-          {!needsProduct && <div className="border-t border-line pt-8">
+          {/* 3. Options you're weighing (hidden once bought: the purchase card already shows the product) */}
+          {!needsProduct && i.status !== "purchased" && i.status !== "bought" && <div className="border-t border-line pt-8">
             <ProductSection
               products={i.products ?? []}
               selectedProductId={i.selectedProductId}
@@ -534,7 +534,6 @@ export function IntentionDetail({
                 setPayError(null);
               }}
               defaultSearchQuery={it.subject}
-              isPurchased={i.status === "purchased" || i.status === "bought"}
               budgetLeft={budgetLeft}
             />
           </div>}
