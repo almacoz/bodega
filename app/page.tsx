@@ -193,7 +193,11 @@ export default function Home() {
     <main className="mx-auto max-w-2xl px-6 pb-32 pt-10 sm:pt-14">
       <header className="mb-16 flex items-center justify-between gap-4 sm:mb-20">
         <div className="flex items-baseline gap-3">
-          <span className="font-sans text-lg font-semibold tracking-tight text-fg">WhyBuy</span>
+          <span className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/whybuy-mark.png" alt="" width={263} height={187} className="h-8 w-auto" />
+            <span className="font-sans text-lg font-semibold tracking-tight text-fg">WhyBuy</span>
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={toggleLang} className="rounded-full border border-line px-3 py-1.5 text-xs font-medium text-dim" aria-label={t.switchLanguage}>{lang === "en" ? "ES" : "EN"}</button>

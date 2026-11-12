@@ -1,3 +1,5 @@
+<p align="center"><img src="public/whybuy-logo.png" alt="WhyBuy" width="220"></p>
+
 # WhyBuy — the pause between wanting and buying
 
 A memory for purchase decisions. You write what you want and why; WhyBuy holds it for a few days, asks once a day whether you still want it, remembers earlier intentions that served the same need, and only then lets you approve a **PayPal Sandbox** test payment or open the store. AI shopping assistants can *propose* purchases into the same waiting room; they can never pay.
@@ -46,14 +48,14 @@ npm install
 cp .env.example .env.local
 # fill LLM_*, PAYPAL_*, optionally CHANNEL3_API_KEY (see below)
 npm run dev             # http://localhost:3000
-npm test                # 50 unit tests (vitest)
+npm test                # 51 unit tests (vitest)
 npm run typecheck       # tsc --noEmit
 npm run build           # production build
 
 # Option B — pnpm (after `corepack enable pnpm`)
 pnpm install
 pnpm dev                # http://localhost:3000
-pnpm test               # 50 unit tests (vitest)
+pnpm test               # 51 unit tests (vitest)
 pnpm typecheck          # tsc --noEmit
 pnpm build              # production build
 ```
@@ -110,7 +112,7 @@ The shopping assistant receives only two tools: `proposePurchase` (creates an **
 
 ## Tests
 
-`pnpm test` runs 50 unit tests covering normalization, memory and linking, notifications, the PayPal helpers, the price-range filter, and the API shield.
+`pnpm test` runs 51 unit tests covering normalization, memory and linking, notifications, the PayPal helpers, the price-range filter, and the API shield.
 
 ## License
 
